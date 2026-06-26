@@ -1,13 +1,13 @@
-================================================================================
+===================
   zstream -- Encrypted TCP Stream Transport for ZFS Replication
   Replaces netcat (nc) in job-replicate.pl
   Repository: https://github.com/guenther-alka/zstream
   Version:    1.1.0
-================================================================================
+===================
 
-================================================================================
+===================
   1. PURPOSE
-================================================================================
+===================
   zstream is a minimal cross-platform binary that replaces netcat (nc) in
   ZFS send/receive replication pipelines. Unlike nc, zstream encrypts the
   stream using AES-256-GCM authenticated encryption.
@@ -36,9 +36,9 @@
   It is passed to both sides via the existing server.pl socket commands.
   No key management needed in zstream itself.
 
-================================================================================
+===================
   2. ENCRYPTION
-================================================================================
+===================
   Algorithm:   AES-256-GCM (authenticated encryption)
   Key:         SHA-256(session_key_string) -> 32 bytes
   Nonce:       12 bytes random per chunk (crypto/rand)
@@ -58,9 +58,9 @@
   - 1 GbE bottleneck: 125 MB/s -> encryption is never the bottleneck
   - 10 GbE bottleneck: 1.25 GB/s -> still well below AES-NI throughput
 
-================================================================================
+===================
   4. OPTIONS
-================================================================================
+===================
   --buf=SIZE      Read-ahead buffer size. Default: 128m (128 MB).
                   Buffers ZFS send output in a goroutine to smooth bursts.
                   Recommended for 10G+ LAN: 128m or 256m.
@@ -89,9 +89,9 @@
                   Log line format:
                     2026.06.26 14:30:00  zstream 1.1.0  mode=send  transferred=12.45 GB  time=02:45  speed=75.3 MB/s  buf=128 MB  rate=off
 
-================================================================================
+===================
   5. INSTALLATION (csweb-gui)
-================================================================================
+===================
   Binary location:
     Linux / OmniOS / FreeBSD:  /opt/csweb-gui/_cfg/s3/bin/zstream
     Windows:                   C:\opt\csweb-gui\_cfg\s3\bin\zstream.exe
@@ -110,9 +110,9 @@
     https://github.com/guenther-alka/zstream/releases/latest/download/zstream-freebsd-amd64
     https://github.com/guenther-alka/zstream/releases/latest/download/zstream-solaris-amd64
 
-================================================================================
+===================
   5. BUILD FROM SOURCE
-================================================================================
+===================
   Requirements:
     Go 1.21 or later
     Download: https://go.dev/dl/
@@ -125,9 +125,9 @@
     git clone https://github.com/guenther-alka/zstream.git
     cd zstream
 
-  ----------------------------------------------------------------------------
+  ===================
   4a. BUILD ON LINUX (amd64)
-  ----------------------------------------------------------------------------
+  ===================
     go build -o zstream .
     chmod +x zstream
     ./zstream version
@@ -147,9 +147,9 @@
   Strip debug info for smaller binary (~30% smaller):
     go build -ldflags="-s -w" -o zstream .
 
-  ----------------------------------------------------------------------------
+  ===================
   4b. BUILD ON WINDOWS (amd64)
-  ----------------------------------------------------------------------------
+  ===================
   Install Go from https://go.dev/dl/ (Windows installer, amd64)
   Open PowerShell or cmd.exe:
 
@@ -161,9 +161,9 @@
     $env:GOOS="linux"; $env:GOARCH="amd64"; $env:CGO_ENABLED="0"
     go build -o zstream-linux-amd64 .
 
-  ----------------------------------------------------------------------------
+  ===================
   4c. BUILD ON OMNIOS / ILLUMOS (amd64)
-  ----------------------------------------------------------------------------
+  ===================
   Install Go:
     pkg install runtime/go      (OmniOS CE r151xxx)
     -- or --
@@ -177,9 +177,9 @@
   If building on OmniOS for OmniOS, plain go build also works:
     go build -o zstream .
 
-  ----------------------------------------------------------------------------
+  ===================
   4d. BUILD ON FREEBSD (amd64)
-  ----------------------------------------------------------------------------
+  ===================
   Install Go:
     pkg install go              (FreeBSD pkg)
     -- or --
@@ -189,9 +189,9 @@
     chmod +x zstream
     ./zstream version
 
-  ----------------------------------------------------------------------------
+  ===================
   4e. BUILD ON MACOS (amd64 / Apple Silicon)
-  ----------------------------------------------------------------------------
+  ===================
   Install Go from https://go.dev/dl/ or via Homebrew:
     brew install go
 
@@ -203,9 +203,9 @@
     GOARCH=arm64 go build -o zstream-arm64 .
     GOARCH=amd64 go build -o zstream-amd64 .
 
-================================================================================
+===================
   6. AUTOMATED BUILD VIA GITHUB ACTIONS
-================================================================================
+===================
   The repository includes .github/workflows/release.yml which builds all
   platform binaries automatically on every git tag push.
 
@@ -233,9 +233,9 @@
   No local Go installation needed for releases -- GitHub provides the build
   environment. Only needed if you want to build and test locally first.
 
-================================================================================
+===================
   7. TESTING
-================================================================================
+===================
   Quick test (same machine, two terminals):
 
   Terminal 1 (receiver):
@@ -260,9 +260,9 @@
     Terminal 2: echo "data" | zstream send 127.0.0.1 9001 wrongkey
     # Receiver exits with: decrypt/auth failed -- wrong key or corrupted data
 
-================================================================================
+===================
   8. INTEGRATION IN csweb-gui (job-replicate.pl)
-================================================================================
+===================
   Binary path:
     $wpath/_cfg/s3/bin/zstream        (Linux/OmniOS/FreeBSD)
     $wpath/_cfg/s3/bin/zstream.exe    (Windows)
@@ -288,9 +288,9 @@
     Same port as previously used for nc (configured in job .par file)
     Default: 9000 (configurable per job)
 
-================================================================================
+===================
   9. WIRE PROTOCOL DETAILS
-================================================================================
+===================
   Connection: plain TCP (no TLS wrapper -- encryption is in the payload)
 
   Handshake: none -- sender connects, immediately starts sending chunks.
@@ -316,9 +316,9 @@
   depending on dataset compression setting). Adding compression in zstream
   would give no benefit and add CPU overhead.
 
-================================================================================
+===================
   10. SECURITY NOTES
-================================================================================
+===================
   - AES-256-GCM provides both confidentiality and integrity
   - Each chunk has a unique random nonce (no nonce reuse possible)
   - GCM tag detects any modification, truncation or bit flip
@@ -331,9 +331,9 @@
   - Port must be open between members (same requirement as nc)
     Recommendation: firewall to allow only member IPs on the replication port
 
-================================================================================
+===================
   11. KNOWN LIMITATIONS
-================================================================================
+===================
   - Solaris binary (GOOS=solaris) may not run on all Solaris variants.
     OmniOS CE r151042+ tested. Older Solaris 11 may need native build.
   - No resume on connection failure (same as nc)
