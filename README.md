@@ -43,7 +43,8 @@ Pre-built binaries for all platforms in [Releases](https://github.com/guenther-a
 | Linux ARM64 | `zstream-linux-arm64` |
 | Windows x86_64 | `zstream-windows-amd64.exe` |
 | FreeBSD x86_64 | `zstream-freebsd-amd64` |
-| OmniOS/Solaris x86_64 | `zstream-solaris-amd64` |
+| Illumos x86_64 | `zstream-illumos-amd64` |
+| Solaris x86_64 | `zstream-solaris-amd64` |
 
 ## Build
 
@@ -56,6 +57,7 @@ go build -o zstream .
 GOOS=linux   GOARCH=amd64 go build -o zstream-linux-amd64 .
 GOOS=windows GOARCH=amd64 go build -o zstream-windows-amd64.exe .
 GOOS=freebsd GOARCH=amd64 go build -o zstream-freebsd-amd64 .
+GOOS=illumos GOARCH=amd64 go build -o zstream-illumos-amd64 .
 GOOS=solaris GOARCH=amd64 go build -o zstream-solaris-amd64 .
 ```
 
