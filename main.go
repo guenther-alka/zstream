@@ -34,7 +34,7 @@
 // Build:
 //   See zstream.info for per-platform build instructions.
 //
-// License: MIT
+// License: BSD 2-Clause -- Copyright (c) 2026 Guenther Alka / napp-it.org
 
 package main
 
