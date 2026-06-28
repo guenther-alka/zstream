@@ -20,6 +20,8 @@
 //   --progress      Show live progress on stderr (default: off)
 //   --log=FILE      Write transfer summary to FILE (default: off)
 //                   Example: --log=/tmp/zstream.log
+//   --bind=IP       Bind listener to IP (default: 0.0.0.0)
+//                   Example: --bind=192.168.1.10
 //
 // Key:
 //   Any string (hex preferred). job-replicate.pl passes sha256_hex(time+ips+snap).
@@ -57,7 +59,9 @@ import (
 const (
         chunkSize      = 65536 // 64 KB plaintext per chunk
         dialTimeout    = 30 * time.Second
-        version        = "1.1.0"
+        acceptTimeout  = 120 * time.Second
+        readTimeout    = 5 * 60 * time.Second  // 5 min no-data timeout
+        version        = "1.1.2"
         defaultBufSize = 128 * 1024 * 1024 // 128 MB
 )
 
@@ -67,6 +71,7 @@ type options struct {
         rateHz   int64  // bytes/sec, 0 = unlimited
         progress bool
         logFile  string
+        bind     string // listen bind address, default 0.0.0.0
 }
 
 // parseSize parses "128m", "1g", "512k", or plain bytes
@@ -97,6 +102,7 @@ func parseSize(s string) (int64, error) {
 func parseFlags(args []string) ([]string, options, error) {
         opts := options{
                 bufSize: defaultBufSize,
+                bind:    "0.0.0.0",
         }
         var pos []string
         for _, a := range args {
@@ -117,6 +123,8 @@ func parseFlags(args []string) ([]string, options, error) {
                         opts.progress = true
                 case strings.HasPrefix(a, "--log="):
                         opts.logFile = strings.TrimPrefix(a, "--log=")
+                case strings.HasPrefix(a, "--bind="):
+                        opts.bind = strings.TrimPrefix(a, "--bind=")
                 default:
                         pos = append(pos, a)
                 }
@@ -326,7 +334,8 @@ func usage() {
         fmt.Fprintf(os.Stderr, "  --buf=SIZE      read-ahead buffer (default 128m, 0=off)  e.g. --buf=256m\n")
         fmt.Fprintf(os.Stderr, "  --rate=SPEED    throughput limit (default off)           e.g. --rate=50m\n")
         fmt.Fprintf(os.Stderr, "  --progress      show live progress on stderr\n")
-        fmt.Fprintf(os.Stderr, "  --log=FILE      append transfer summary to FILE\n\n")
+        fmt.Fprintf(os.Stderr, "  --log=FILE      append transfer summary to FILE\n")
+        fmt.Fprintf(os.Stderr, "  --bind=IP       bind listener to IP (default 0.0.0.0)\n\n")
         fmt.Fprintf(os.Stderr, "Example:\n")
         fmt.Fprintf(os.Stderr, "  # Receiver:\n")
         fmt.Fprintf(os.Stderr, "  zstream listen 9000 MYKEY | zfs receive -F tank/backup\n\n")
@@ -353,27 +362,33 @@ func newGCM(keystr string) (cipher.AEAD, error) {
 // doListen opens a TCP listener, accepts one connection, decrypts the stream
 // and writes plaintext to stdout.
 func doListen(port, keystr string, opts options) {
-        ln, err := net.Listen("tcp", "0.0.0.0:"+port)
+        listenAddr := opts.bind + ":" + port
+        ln, err := net.Listen("tcp", listenAddr)
         if err != nil {
-                fatalf("listen :%s: %v", port, err)
+                fatalf("listen %s: %v", listenAddr, err)
         }
         defer ln.Close()
 
-        logf("listening on :%s  (buf=%s)", port, func() string {
+        logf("listening on %s  (buf=%s)", listenAddr, func() string {
                 if opts.bufSize == 0 {
                         return "off"
                 }
                 return fmtBytes(opts.bufSize)
         }())
 
+        // Accept timeout: don't wait forever for a sender
+        ln.(*net.TCPListener).SetDeadline(time.Now().Add(acceptTimeout))
         conn, err := ln.Accept()
         if err != nil {
-                fatalf("accept: %v", err)
+                fatalf("accept (timeout %s): %v", acceptTimeout, err)
         }
         defer conn.Close()
         ln.Close()
 
         logf("connection from %s", conn.RemoteAddr())
+
+        // Read timeout: detect dead sender / network failure
+        conn.SetReadDeadline(time.Now().Add(readTimeout))
 
         gcm, err := newGCM(keystr)
         if err != nil {
@@ -563,6 +578,10 @@ func decryptStreamBuffered(r io.Reader, w io.Writer, gcm cipher.AEAD, bufSize in
         // Producer: decrypt chunks into channel
         go func() {
                 for {
+                        // Refresh read deadline on each chunk
+                        if tc, ok := r.(interface{ SetReadDeadline(time.Time) error }); ok {
+                                tc.SetReadDeadline(time.Now().Add(readTimeout))
+                        }
                         var lenBuf [4]byte
                         if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
                                 if err == io.EOF {
@@ -664,6 +683,10 @@ func decryptStream(r io.Reader, w io.Writer, gcm cipher.AEAD, counter *int64, rl
         var total int64
         nonceSize := gcm.NonceSize()
         for {
+                // Refresh read deadline on each chunk (5 min between chunks)
+                if tc, ok := r.(interface{ SetReadDeadline(time.Time) error }); ok {
+                        tc.SetReadDeadline(time.Now().Add(readTimeout))
+                }
                 var lenBuf [4]byte
                 if _, err := io.ReadFull(r, lenBuf[:]); err != nil {
                         if err == io.EOF {
